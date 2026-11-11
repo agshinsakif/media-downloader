@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media Downloader</title>
+    <style>
+        :root {
+            --bg-main: #1E1E1E;
+            --bg-panel: #2C2C2E;
+            --border: #3A3A3C;
+            --text-main: #FFFFFF;
+            --text-muted: #8E8E93;
+            --accent: #0A84FF;
+            --success: #30D158;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            margin: 0; padding: 20px;
+            display: flex; justify-content: center;
+        }
+        .container { max-width: 850px; width: 100%; display: flex; flex-direction: column; gap: 16px; }
+        h1 { font-size: 24px; margin: 0; }
+        .input-row { display: flex; gap: 10px; }
+        input[type="text"] {
+            flex-grow: 1; padding: 10px 14px;
+            background: #2D2D2D; border: 1px solid var(--border); border-radius: 8px;
+            color: white; font-size: 14px;
+        }
+        input[type="text"]:focus { outline: none; border-color: var(--accent); }
+        button {
+            padding: 10px 20px; background: white; color: black;
+            border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;
+        }
+        button:hover { background: #E5E5EA; }
+        button:disabled { background: var(--border); color: #7C7C80; cursor: not-allowed; }
+        
+        .tabs { display: flex; gap: 4px; margin-top: 10px; border-bottom: 1px solid var(--border); }
+        .tab { 
+            padding: 10px 20px; color: var(--text-muted); cursor: pointer;
+            border-top-left-radius: 8px; border-top-right-radius: 8px; font-weight: 600;
+        }
+        .tab.active { background: var(--accent); color: white; }
+        
+        .tab-content { display: none; background: var(--bg-main); padding-top: 15px; }
+        .tab-content.active { display: block; }
+        
+        table { width: 100%; border-collapse: collapse; background: var(--bg-panel); border-radius: 8px; overflow: hidden; }
+        th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--border); }
+        th { background: #1C1C1E; color: var(--text-muted); font-size: 12px; }
+        tr:hover { background: #3A3A3C; cursor: pointer; }
+        tr.selected { background: var(--accent); color: white; }
+        
+        #status { font-size: 12px; color: var(--text-muted); margin-top: 10px;}
+        .loading { color: var(--accent); font-weight: bold; }
+        .success { color: var(--success); font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Media Downloader</h1>
+        
+        <div class="input-row">
+            <input type="text" id="url" placeholder="Paste video or audio URL here...">
+            <button id="fetchBtn" onclick="fetchMetadata()">Fetch Media Details</button>
+        </div>
+        
+        <div id="videoTitle" style="font-size: 14px;">Enter a URL above to inspect available formats.</div>
+        
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('video')">Video Formats</div>
+            <div class="tab" onclick="switchTab('audio')">Audio Only</div>
+            <div class="tab" onclick="switchTab('subs')">Transcripts</div>
+        </div>
+        
+        <!-- Video Tab -->
+        <div id="video" class="tab-content active">
+            <table id="videoTable">
+                <thead><tr><th>Format ID</th><th>Ext</th><th>Resolution</th><th>Codec</th><th>Size</th></tr></thead>
+                <tbody></tbody>
+            </table>
+            <br><button id="dlVideoBtn" onclick="triggerDownload('video')" disabled>Download Selected Video</button>
+        </div>
+        
+        <!-- Audio Tab -->
+        <div id="audio" class="tab-content">
+            <table id="audioTable">
+                <thead><tr><th>Format ID</th><th>Ext</th><th>Quality</th><th>Codec</th><th>Size</th></tr></thead>
+                <tbody></tbody>
+            </table>
+            <br><button id="dlAudioBtn" onclick="triggerDownload('audio')" disabled>Download Selected Audio</button>
+        </div>
+        
+        <!-- Subs Tab -->
+        <div id="subs" class="tab-content">
+            <table id="subsTable">
+                <thead><tr><th>Language</th><th>Code</th><th>Category</th></tr></thead>
+                <tbody></tbody>
+            </table>
+            <br>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <span style="color: var(--text-muted); font-weight: bold;">Format:</span>
+                <select id="subFormat" style="padding: 8px; border-radius: 6px; background: #2D2D2D; color: white; border: 1px solid var(--border);">
+                    <option value="txt">txt</option>
+                    <option value="srt">srt</option>
+                    <option value="vtt">vtt</option>
+                </select>
+                <button id="dlSubBtn" onclick="triggerDownload('sub')" disabled>Download Selected Transcript</button>
+            </div>
+        </div>
+        
+        <div id="status">Ready</div>
+    </div>
+
+    <script>
+        let currentMetadata = null;
+        let selections = { video: null, audio: null, sub: null };
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        async function fetchMetadata() {
+            const url = document.getElementById('url').value;
+            if (!url) return alert("Please enter a URL");
+            
+            document.getElementById('fetchBtn').disabled = true;
+            document.getElementById('fetchBtn').innerText = "Loading...";
+            document.getElementById('status').innerHTML = "<span class='loading'>Fetching metadata from source...</span>";
+
+            try {
+                const res = await fetch('/api/info', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url})
+                });
+                const data = await res.json();
+                
+                if (data.error) throw new Error(data.error);
+                
+                currentMetadata = data;
+                document.getElementById('videoTitle').innerHTML = `<b>Title:</b> ${data.title}`;
+                
+                populateTable('videoTable', data.videos, ['format_id', 'ext', 'resolution', 'vcodec', 'filesize_mb'], 'video');
+                populateTable('audioTable', data.audios, ['format_id', 'ext', 'quality', 'acodec', 'filesize_mb'], 'audio');
+                populateTable('subsTable', data.subs, ['name', 'code', 'category'], 'sub');
+                
+                ['dlVideoBtn', 'dlAudioBtn', 'dlSubBtn'].forEach(id => document.getElementById(id).disabled = false);
+                document.getElementById('status').innerText = "Data loaded. Select a format to download.";
+            } catch (err) {
+                document.getElementById('status').innerText = "Error: " + err.message;
+            }
+            
+            document.getElementById('fetchBtn').disabled = false;
+            document.getElementById('fetchBtn').innerText = "Fetch Media Details";
+        }
+
+        function populateTable(tableId, dataList, keys, type) {
+            const tbody = document.getElementById(tableId).querySelector('tbody');
+            tbody.innerHTML = '';
+            dataList.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                keys.forEach(key => {
+                    const td = document.createElement('td');
+                    td.innerText = item[key];
+                    tr.appendChild(td);
+                });
+                tr.onclick = () => {
+                    Array.from(tbody.children).forEach(r => r.classList.remove('selected'));
+                    tr.classList.add('selected');
+                    selections[type] = item;
+                };
+                if (index === 0) tr.click(); // Auto-select first row
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function triggerDownload(type) {
+            const sel = selections[type];
+            if (!sel) return alert("Please select an option first.");
+            
+            const url = document.getElementById('url').value;
+            const payload = { url, type, safe_title: currentMetadata.safe_title };
+            
+            if (type === 'video' || type === 'audio') payload.format_id = sel.format_id;
+            if (type === 'sub') {
+                payload.lang = sel.code;
+                payload.category = sel.category;
+                payload.sub_format = document.getElementById('subFormat').value;
+            }
+
+            document.getElementById('status').innerHTML = "<span class='loading'>Processing on server... Download will start in your browser shortly.</span>";
+
+            try {
+                const res = await fetch('/api/download', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
+                });
+                
+                if (!res.ok) throw new Error("Download failed on server.");
+
+                // Trigger actual browser download
+                const blob = await res.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                
+                // Try to get filename from headers, fallback to safe_title
+                let filename = `${payload.safe_title}.${type === 'audio' ? 'mp3' : type === 'video' ? 'mp4' : payload.sub_format}`;
+                const disposition = res.headers.get('content-disposition');
+                if (disposition && disposition.indexOf('attachment') !== -1) {
+                    const matches = /filename="([^"]+)"/.exec(disposition);
+                    if (matches != null && matches[1]) filename = matches[1];
+                }
+                
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+
+                document.getElementById('status').innerHTML = `<span class='success'>Download complete! Check your browser downloads folder.</span>`;
+            } catch (err) {
+                document.getElementById('status').innerText = "Error: " + err.message;
+            }
+        }
+    </script>
+</body>
+</html>
