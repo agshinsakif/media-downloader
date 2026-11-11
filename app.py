@@ -19,24 +19,20 @@ def truncate_filename(title: str, max_words: int = 3) -> str:
     return clean_title or "media_file"
 
 def convert_vtt_to_txt(vtt_filepath: str, txt_filepath: str):
-    if not os.path.exists(vtt_filepath):
-        return
+    if not os.path.exists(vtt_filepath): return
     with open(vtt_filepath, 'r', encoding='utf-8') as f:
         lines = f.readlines()
     clean_lines, seen_lines = [], set()
     for line in lines:
         line_str = line.strip()
-        if not line_str or line_str.startswith("WEBVTT") or line_str.startswith("Kind:") or line_str.startswith("Language:"):
-            continue
-        if "-->" in line_str or re.match(r'^\d+$', line_str):
-            continue
+        if not line_str or line_str.startswith("WEBVTT") or line_str.startswith("Kind:") or line_str.startswith("Language:"): continue
+        if "-->" in line_str or re.match(r'^\d+$', line_str): continue
         clean_text = re.sub(r'<[^>]+>', '', line_str).strip()
         if clean_text and clean_text not in seen_lines:
             seen_lines.add(clean_text)
             clean_lines.append(clean_text)
     with open(txt_filepath, 'w', encoding='utf-8') as f:
-        f.write("
-".join(clean_lines))
+        f.write("\n".join(clean_lines))
 
 @app.route('/')
 def index():
@@ -45,8 +41,7 @@ def index():
 @app.route('/api/info', methods=['POST'])
 def get_metadata():
     url = request.json.get('url')
-    if not url:
-        return jsonify({"error": "No URL provided"}), 400
+    if not url: return jsonify({"error": "No URL provided"}), 400
 
     ydl_opts = {
         'quiet': True,
