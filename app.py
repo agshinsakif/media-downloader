@@ -48,6 +48,7 @@ def get_metadata():
         'no_warnings': True,
         'extract_flat': False,
         'remote_components': ['ejs:github'],
+        'extractor_args': {'youtube': ['player-client=all,-web']},
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
             'Accept-Language': 'en-US,en;q=0.9',
@@ -114,6 +115,7 @@ def download():
         'quiet': True,
         'outtmpl': f"{base_path}.%(ext)s",
         'remote_components': ['ejs:github'],
+        'extractor_args': {'youtube': ['player-client=all,-web']},
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
             'Accept-Language': 'en-US,en;q=0.9',
