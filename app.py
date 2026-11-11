@@ -43,7 +43,9 @@ def get_metadata():
     url = request.json.get('url')
     if not url: return jsonify({"error": "No URL provided"}), 400
 
-    ydl_opts = {'quiet': True, 'no_warnings': True, 'extract_flat': False}
+    ydl_opts = {'quiet': True, 'no_warnings': True,
+        'remote_components': ['ejs:github'],
+        'http_headers': {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'} 'extract_flat': False}
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:

@@ -1,5 +1,5 @@
 Flask==3.0.0
-yt-dlp
+yt-dlp>=2024.12.0
 Werkzeug==3.0.1
 gunicorn==21.2.0
 imageio-ffmpeg
